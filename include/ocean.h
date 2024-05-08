@@ -8,7 +8,7 @@
 #define WAVE_HEIGHT .2f
 #define WAVE_LAMBDA 5.0f
 #define WAVE_SPEED 2.0f
-#define WAVE_DEGREE 0.0f
+#define WAVE_DEGREE 1.0f
 
 #define PI glm::pi<float>()
 float waveHeight(float x, float z, float t, float h, float lambda, float speed, float degree);

@@ -16,6 +16,7 @@ unsigned char objectText[TEXTURE_SIZE][TEXTURE_SIZE][4];
 int viewMode = 0;
 std::vector<glm::vec3> buoyancyCenter;
 std::vector<glm::vec3> massCenter;
+bool showObject = true;
 
 
 void initTexture(){
@@ -70,7 +71,7 @@ void initObjects(std::vector<object *> &objs, int num){
     // objs.back()->setRotateV(glm::vec3(0, 0, 5));
     objs.push_back(new cube(glm::vec3(2, 0, 0), 3.0, 0.5, 3.0));
     objs.back()->setTexture(TEXTURE::T_OBJECT, textName);
-    objs.back()->setM(2.0f);
+    objs.back()->setM(2.5f);
     objs.back()->setName("Cube");
     // objs.back()->setRotateV(glm::vec3(0, 1, 0));
     objs.push_back(new cube(glm::vec3(0, 0, -3), 1.0, 0.5, 1.0));
@@ -197,8 +198,11 @@ void drawSingleView(std::vector<object *> &objs, int width, int height, glm::vec
     glLoadIdentity();
     setLight();
     for(auto &obj : objs){
-        // if(obj->getName() == "Ocean")
-        obj->draw();
+        if(showObject != false){
+            if(obj->getName() == "Ocean")
+                obj->draw();
+        }
+        else obj->draw();
     }
     for(auto i : massCenter){
         if(textName != nullptr){
@@ -307,6 +311,9 @@ void keyboard(GLFWwindow *window, int key, int scancode, int action, int mods){
         }
         if(key == GLFW_KEY_V){
             viewMode = (viewMode + 1) % 2;
+        }
+        if(key == GLFW_KEY_O){
+            showObject = !showObject;
         }
         switch(key){
             case GLFW_KEY_UP:

@@ -27,7 +27,7 @@ int main(int argc, char **argv){
         return -1;
     }
 
-    GLFWwindow *window = glfwCreateWindow(width, height, "Collide", nullptr, nullptr);
+    GLFWwindow *window = glfwCreateWindow(width, height, "Wave and Buoyancy Simulation", nullptr, nullptr);
     if(!window){
         glfwTerminate();
         return -1;
