@@ -3,7 +3,7 @@
 #include "custom_object.h"
 #include "ellipsoid.h"
 #include <algorithm>
-#define BOX_SIZE 21
+#define BOX_SIZE 11
 
 
 int keyState[GLFW_KEY_LAST] = { 0 };
@@ -15,6 +15,7 @@ unsigned char emptyText[TEXTURE_SIZE][TEXTURE_SIZE][4];
 unsigned char objectText[TEXTURE_SIZE][TEXTURE_SIZE][4];
 int viewMode = 0;
 std::vector<glm::vec3> buoyancyCenter;
+std::vector<glm::vec3> massCenter;
 
 
 void initTexture(){
@@ -64,17 +65,17 @@ void initObjects(std::vector<object *> &objs, int num){
     }
     objs.push_back(new ellipsoid(glm::vec3(0, 0, 3), 3, 0.6, 0.6));
     objs.back()->setTexture(TEXTURE::T_OBJECT, textName);
-    objs.back()->setM(1.0f);
+    objs.back()->setM(2.0f);
     objs.back()->setName("Ellipsoid");
-    // objs.back()->setRotateV(glm::vec3(0, 1, 0));
-    objs.push_back(new cube(glm::vec3(4, 0, 0), 3.0, 0.5, 3.0));
+    // objs.back()->setRotateV(glm::vec3(0, 0, 5));
+    objs.push_back(new cube(glm::vec3(2, 0, 0), 3.0, 0.5, 3.0));
     objs.back()->setTexture(TEXTURE::T_OBJECT, textName);
     objs.back()->setM(2.0f);
     objs.back()->setName("Cube");
     // objs.back()->setRotateV(glm::vec3(0, 1, 0));
     objs.push_back(new cube(glm::vec3(0, 0, -3), 1.0, 0.5, 1.0));
     objs.back()->setTexture(TEXTURE::T_OBJECT, textName);
-    objs.back()->setM(.4f);
+    objs.back()->setM(.45f);
     objs.back()->setName("Cube");
 
     std::cout << "Done" << std::endl;
@@ -196,7 +197,30 @@ void drawSingleView(std::vector<object *> &objs, int width, int height, glm::vec
     glLoadIdentity();
     setLight();
     for(auto &obj : objs){
+        // if(obj->getName() == "Ocean")
         obj->draw();
+    }
+    for(auto i : massCenter){
+        if(textName != nullptr){
+            SetTexture(T_OBJECT, textName);
+        }
+
+        glPushMatrix();
+        glTranslatef(i.x, i.y, i.z);
+        glScalef(.1, .1, .1);
+        glutSolidSphere(1, 20, 20);
+        glPopMatrix();
+    }
+    for(auto i : buoyancyCenter){
+        if(textName != nullptr){
+            SetTexture(T_OBJECT, textName);
+        }
+
+        glPushMatrix();
+        glTranslatef(i.x, i.y, i.z);
+        glScalef(0.1, .1, .1);
+        glutSolidSphere(1, 20, 20);
+        glPopMatrix();
     }
 }
 
@@ -320,13 +344,13 @@ void keyboard(GLFWwindow *window, int key, int scancode, int action, int mods){
 }
 
 void updatePhysics(float dt, float t, std::vector<object *> &objs){
-    // /*
     for(auto &obj : objs){
         if(obj->getName() == "Ocean"){
             getOcean(obj, t);
         }
     }
 
+    // /*
     // get ellipsoid object
     std::vector<ellipsoid *> ellipsoidObjs;
     std::vector<cube *> cubeObjs;
@@ -341,10 +365,13 @@ void updatePhysics(float dt, float t, std::vector<object *> &objs){
 
     if(buoyancyCenter.size() != ellipsoidObjs.size() + cubeObjs.size()){
         buoyancyCenter.resize(ellipsoidObjs.size() + cubeObjs.size());
+        massCenter.resize(ellipsoidObjs.size() + cubeObjs.size());
     }
 
     // 更新ellipsoid的buoyancyCenter和buoyancyForce
     for(int i = 0; i < ellipsoidObjs.size(); i++){
+        ellipsoidObjs[i]->decomposeEllipsoid(t);
+        massCenter[i] = ellipsoidObjs[i]->getLoc();
         buoyancyCenter[i] = ellipsoidObjs[i]->getBuoyancyCenter(t);
         glm::vec3 buoyancyForce = ellipsoidObjs[i]->getBuoyancyForce(t);
 
@@ -356,18 +383,22 @@ void updatePhysics(float dt, float t, std::vector<object *> &objs){
         glm::vec3 b = buoyancyForce;
 
         // 計算角加速度
-        glm::vec3 torque = glm::cross(buoyancyCenter[i] - ellipsoidObjs[i]->getLoc(), b) ;
-        ellipsoidObjs[i]->setRotateA(torque / ellipsoidObjs[i]->getM());
+        glm::vec3 torque = glm::cross(buoyancyCenter[i] - ellipsoidObjs[i]->getLoc(), b);
+        ellipsoidObjs[i]->setRotateA(torque);
 
         // 計算重力和浮力垂直方向的加速度
         glm::vec3 a = m + b;
         ellipsoidObjs[i]->setA(a / ellipsoidObjs[i]->getM());
+
     }
 
     // 更新cube的buoyancyCenter和buoyancyForce
     for(int i = 0; i < cubeObjs.size(); i++){
+        cubeObjs[i]->decomposeCube(t);
+        massCenter[i + ellipsoidObjs.size()] = cubeObjs[i]->getLoc();
         buoyancyCenter[i + ellipsoidObjs.size()] = cubeObjs[i]->getBuoyancyCenter(t);
         glm::vec3 buoyancyForce = cubeObjs[i]->getBuoyancyForce(t);
+
 
         // 重力施加在loc上 浮力施加在buoyancyCenter上 計算角加速度
         // 重力
@@ -377,15 +408,41 @@ void updatePhysics(float dt, float t, std::vector<object *> &objs){
 
         // 計算角加速度
         glm::vec3 torque = glm::cross(buoyancyCenter[i + ellipsoidObjs.size()] - cubeObjs[i]->getLoc(), b);
-        cubeObjs[i]->setRotateA(torque / cubeObjs[i]->getM());
+        cubeObjs[i]->setRotateA(torque);
 
         // 計算重力和浮力垂直方向的加速度
         glm::vec3 a = m + b;
         cubeObjs[i]->setA(a / cubeObjs[i]->getM());
 
     }
-
+    //*/
+    // /*
     // 計算水對物體的阻尼力
+    // D = Cd * (density of water) * A * v^2 / 2
+    for(int i = 0; i < ellipsoidObjs.size(); i++){
+        float reflectedArea = ellipsoidObjs[i]->getReflectedArea(t);
+        glm::vec3 v = ellipsoidObjs[i]->getV();
+        float Cd = 0.47;
+        float density = 1;
+        float vl = glm::length(v);
+        glm::vec3 tv = -v;
+        glm::normalize(tv);
+        glm::vec3 D = Cd * density * reflectedArea * v * v * tv / 2.0f;
+        glm::vec3 a = D / cubeObjs[i]->getM();
+        ellipsoidObjs[i]->addA(a);
+    }
+    for(int i = 0; i < cubeObjs.size(); i++){
+        float reflectedArea = cubeObjs[i]->getReflectedArea(t);
+        glm::vec3 v = cubeObjs[i]->getV();
+        float Cd = 0.47;
+        float density = 1;
+        float vl = glm::length(v);
+        glm::vec3 tv = -v;
+        glm::normalize(tv);
+        glm::vec3 D = Cd * density * reflectedArea * v * v * tv / 2.0f;
+        glm::vec3 a = D / cubeObjs[i]->getM();
+        cubeObjs[i]->addA(a);
+    }
 
     // */
     for(auto &obj : objs){

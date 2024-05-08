@@ -146,7 +146,6 @@ std::pair<float, float> cube::getY(float x, float z){
 }
 
 glm::vec3 cube::getBuoyancyCenter(float t){
-    std::vector<Cylinder> decomposed = decomposeCube(t);
     float totalM = 0;
     glm::vec3 result = glm::vec3(0, 0, 0);
     // 特判 全部在水下
@@ -160,10 +159,10 @@ glm::vec3 cube::getBuoyancyCenter(float t){
         return loc;
     }
 
-    for(auto &c : decomposed){
+    for(auto &c : decompose){
         totalM += c.m;
     }
-    for(auto &c : decomposed){
+    for(auto &c : decompose){
         result += c.m / totalM * glm::vec3(c.loc.x, getY(c.loc.x, c.loc.y).second + c.h / 2.0, c.loc.y);
     }
     return result;
@@ -180,17 +179,16 @@ glm::vec3 cube::getBuoyancyForce(float t){
     if(maxY < waveHeight){
         return glm::vec3(0, w * l * h, 0);
     }
-    std::vector<Cylinder> decomposed = decomposeCube(t);
     float totalM = 0;
-    for(auto &c : decomposed){
+    for(auto &c : decompose){
         totalM += c.m;
     }
     return glm::vec3(0, totalM, 0);
 }
 
-std::vector<cube::Cylinder> cube::decomposeCube(float t){
+void cube::decomposeCube(float t){
     updateRotatePoints();
-    std::vector<Cylinder> result;
+    decompose.clear();
     float minX = 1000000, maxX = -1000000, minZ = 1000000, maxZ = -1000000;
     for(int i = 0; i < 8; i++){
         minX = std::min(minX, rotatePoints[i].x);
@@ -209,8 +207,49 @@ std::vector<cube::Cylinder> cube::decomposeCube(float t){
             c.m = (inWaterY - getY(i, j).second) * dx * dy;
             c.h = std::max(inWaterY - getY(i, j).second, 0.0f);
             if(c.m > 0)
-                result.push_back(c);
+                decompose.push_back(c);
         }
     }
-    return result;
+}
+
+float cube::getReflectedArea(float t){
+    updateRotatePoints();
+    // 特判 全部在水下
+    float maxY = -1000000;
+    float waveHeight;
+    getOcean(waveHeight, loc.x, loc.z, t);
+    for(int i = 0; i < 8; i++){
+        maxY = std::max(maxY, rotatePoints[i].y);
+    }
+    if(maxY < waveHeight){
+        return l * w * 2 + l * h * 2 + w * h * 2;
+    }
+
+    float minX = 1000000, maxX = -1000000, minZ = 1000000, maxZ = -1000000;
+    for(int i = 0; i < 8; i++){
+        minX = std::min(minX, rotatePoints[i].x);
+        maxX = std::max(maxX, rotatePoints[i].x);
+        minZ = std::min(minZ, rotatePoints[i].z);
+        maxZ = std::max(maxZ, rotatePoints[i].z);
+    }
+    float area = 0;
+    float dx = 0.1, dy = 0.1;
+
+    for(float i = minX; i < maxX; i += dx){
+        for(float j = minZ; j < maxZ; j += dy){
+            float waveHeight;
+            getOcean(waveHeight, i, j, t);
+            std::pair<float , float> y = getY(i, j);
+
+            // 特判 全部在水下 上下表面積
+            if(y.first < waveHeight){
+                area += dx * dy * 2;
+            }
+            // 一面在水下
+            else if(y.second < waveHeight){
+                area += dx * dy;
+            }
+        }
+    }
+    return area;
 }

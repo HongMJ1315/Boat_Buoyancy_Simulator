@@ -13,11 +13,12 @@ private:
         float m;
         glm::vec2 loc; //(x, z)
     };
-    std::vector<Cylinder> decomposeCube(float);
+    std::vector<Cylinder> decompose;
     void updateRotatePoints();
 public:
     cube(glm::vec3, float, float, float);
     void draw();
+    void decomposeCube(float);
     bool isCollide(object &);
     float getL();
     float getW();
@@ -25,7 +26,7 @@ public:
     std::pair<float, float> getY(float, float);
     glm::vec3 getBuoyancyCenter(float);
     glm::vec3 getBuoyancyForce(float);
-    // float getReflectedArea(float);
+    float getReflectedArea(float);
 };
 
 #endif
